@@ -13,7 +13,7 @@ export async function POST(req) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "You are a smart HR AI assistant." },
+          { role: "system", content: "You are a helpful HR AI assistant." },
           { role: "user", content: message },
         ],
       }),
@@ -21,22 +21,20 @@ export async function POST(req) {
 
     const data = await response.json();
 
-    // 🔴 If OpenAI fails
+    console.log("FULL OPENAI RESPONSE:", data); // 👈 IMPORTANT
+
+    // ❌ If OpenAI error
     if (!response.ok) {
-      console.error("OpenAI Error:", data);
-      return NextResponse.json(
-        { reply: "AI error. Check API key or quota." },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        reply: "OpenAI API error. Check key or quota.",
+      });
     }
 
-    // 🔴 Safety check
+    // ❌ If wrong structure
     if (!data.choices || !data.choices[0]) {
-      console.error("Invalid response:", data);
-      return NextResponse.json(
-        { reply: "Invalid AI response" },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        reply: "Invalid response from AI",
+      });
     }
 
     return NextResponse.json({
@@ -44,10 +42,9 @@ export async function POST(req) {
     });
 
   } catch (error) {
-    console.error("Server Error:", error);
-    return NextResponse.json(
-      { reply: "Error processing request" },
-      { status: 500 }
-    );
+    console.error("SERVER ERROR:", error);
+    return NextResponse.json({
+      reply: "Server crashed",
+    });
   }
 }
