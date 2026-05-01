@@ -1,41 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 
 export default function Home() {
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [chat, setChat] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  const chatEndRef = useRef(null);
+  // ✅ Add message to chat
+  const addMessage = (role, content) => {
+    setMessages((prev) => [...prev, { role, content }]);
+  };
 
-  // ✅ Load chat from localStorage
-  useEffect(() => {
-    const savedChat = localStorage.getItem("chat");
-    if (savedChat) {
-      setChat(JSON.parse(savedChat));
-    }
-  }, []);
-
-  // ✅ Save chat to localStorage
-  useEffect(() => {
-    localStorage.setItem("chat", JSON.stringify(chat));
-  }, [chat]);
-
-  // Auto scroll
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chat]);
-
-  async function sendMessage() {
+  // ✅ Send message to backend
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", text: input };
-    const updatedChat = [...chat, userMessage];
-
-    setChat(updatedChat);
-    setInput("");
-    setLoading(true);
+    addMessage("user", input);
 
     try {
       const res = await fetch("/api/chat", {
@@ -43,137 +23,87 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ chat: updatedChat }),
+        body: JSON.stringify({ message: input }),
       });
 
       const data = await res.json();
 
-      setChat([...updatedChat, { role: "assistant", text: data.reply }]);
-    } catch (err) {
-      setChat([
-        ...updatedChat,
-        { role: "assistant", text: "Something went wrong 😢" },
-      ]);
+      if (!res.ok || !data.reply) {
+        throw new Error("Failed response");
+      }
+
+      addMessage("bot", data.reply);
+
+    } catch (error) {
+      console.error(error);
+      addMessage("bot", "Something went wrong");
     }
 
-    setLoading(false);
-  }
+    setInput("");
+  };
 
-  function clearChat() {
-    setChat([]);
-    localStorage.removeItem("chat");
-  }
+  // ✅ Enter key support
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Cortex AI</h1>
+    <div style={{ padding: "20px", background: "#0b1220", minHeight: "100vh", color: "white" }}>
+      <h1>Cortex AI</h1>
 
-      <button onClick={clearChat} style={styles.clearBtn}>
-        Clear Chat
-      </button>
-
-      <div style={styles.chatBox}>
-        {chat.map((msg, index) => (
+      <div style={{ marginTop: "20px", minHeight: "300px" }}>
+        {messages.map((msg, i) => (
           <div
-            key={index}
+            key={i}
             style={{
-              ...styles.message,
-              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-              background:
-                msg.role === "user" ? "#2563eb" : "#1f2937",
+              textAlign: msg.role === "user" ? "right" : "left",
+              margin: "10px 0",
             }}
           >
-            {msg.text}
+            <span
+              style={{
+                background: msg.role === "user" ? "#3b82f6" : "#1f2937",
+                padding: "10px",
+                borderRadius: "10px",
+                display: "inline-block",
+              }}
+            >
+              {msg.content}
+            </span>
           </div>
         ))}
-
-        {loading && (
-          <div style={{ ...styles.message, background: "#1f2937" }}>
-            🤖 AI is thinking...
-          </div>
-        )}
-
-        <div ref={chatEndRef} />
       </div>
 
-      <div style={styles.inputContainer}>
-        <textarea
+      <div style={{ display: "flex", marginTop: "20px" }}>
+        <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
+          onKeyDown={handleKeyDown}
           placeholder="Ask something..."
-          style={styles.input}
+          style={{
+            flex: 1,
+            padding: "10px",
+            borderRadius: "5px",
+            border: "none",
+          }}
         />
-        <button onClick={sendMessage} style={styles.button}>
+
+        <button
+          onClick={sendMessage}
+          style={{
+            marginLeft: "10px",
+            padding: "10px 20px",
+            background: "#3b82f6",
+            border: "none",
+            borderRadius: "5px",
+            color: "white",
+          }}
+        >
           Send
         </button>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    background: "#0f172a",
-    color: "white",
-    padding: "20px",
-  },
-  title: {
-    marginBottom: "10px",
-  },
-  clearBtn: {
-    marginBottom: "10px",
-    padding: "6px 12px",
-    borderRadius: "6px",
-    border: "none",
-    background: "#ef4444",
-    color: "white",
-    cursor: "pointer",
-    width: "120px",
-  },
-  chatBox: {
-    flex: 1,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    padding: "10px",
-    borderRadius: "10px",
-    background: "#020617",
-  },
-  message: {
-    padding: "10px 14px",
-    borderRadius: "10px",
-    maxWidth: "70%",
-    whiteSpace: "pre-wrap",
-  },
-  inputContainer: {
-    display: "flex",
-    gap: "10px",
-    marginTop: "10px",
-  },
-  input: {
-    flex: 1,
-    padding: "10px",
-    borderRadius: "8px",
-    border: "none",
-    outline: "none",
-    resize: "none",
-  },
-  button: {
-    padding: "10px 16px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    cursor: "pointer",
-  },
-};
